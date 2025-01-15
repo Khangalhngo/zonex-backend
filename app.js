@@ -2,12 +2,19 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const port = 3000;
 
 // Middleware
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -31,12 +38,12 @@ const generateRefreshToken = (user) => {
 // Register route
 app.post('/register', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await pool.execute(
-      'INSERT INTO users (email, password) VALUES (?, ?)',
-      [email, hashedPassword]
+      'INSERT INTO users (username, password) VALUES (?, ?)',
+      [username, hashedPassword]
     );
 
     res.status(201).json({ message: 'User created successfully' });
@@ -48,11 +55,11 @@ app.post('/register', async (req, res) => {
 // Login route
 app.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
     const [users] = await pool.execute(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
+      'SELECT * FROM users WHERE username = ?',
+      [username]
     );
 
     if (users.length === 0) {
@@ -80,7 +87,7 @@ app.post('/login', async (req, res) => {
       refreshToken,
       user: {
         id: user.id,
-        email: user.email,
+        username: user.username,
         created_at: user.created_at,
         last_login: user.last_login
       }
@@ -137,6 +144,50 @@ const authenticateToken = (req, res, next) => {
 // Example protected route
 app.get('/protected', authenticateToken, (req, res) => {
   res.json({ message: 'This is a protected route', userId: req.user.id });
+});
+
+// Password update route
+app.put('/update-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate request body
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required' });
+    }
+
+    // Get user from database
+    const [users] = await pool.execute(
+      'SELECT * FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = users[0];
+
+    // Verify current password
+    const validPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password in database
+    await pool.execute(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, req.user.id]
+    );
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Password update error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.listen(port, () => {
