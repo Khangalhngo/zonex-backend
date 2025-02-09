@@ -1,7 +1,18 @@
-CREATE TABLE users (
+-- CREATE TABLE IF NOT CREATE users (
+--     id INT PRIMARY KEY AUTO_INCREMENT,
+--     username VARCHAR(255) UNIQUE NOT NULL,
+--     password VARCHAR(255) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     last_login TIMESTAMP NULL
+-- ); 
+
+CREATE TABLE clients (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    username VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP NULL
+    lastName VARCHAR(255) NOT NULL,
+    firstName VARCHAR(255) NOT NULL,
+    organization VARCHAR(255) NOT NULL,
+    department VARCHAR(255) NOT NULL,
+    position VARCHAR(255) NOT NULL,
+    phoneNumber VARCHAR(255) UNIQUE NOT NULL,
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 ); 

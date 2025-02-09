@@ -39,6 +39,7 @@ const generateRefreshToken = (user) => {
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log(req.body)
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await pool.execute(
@@ -125,16 +126,29 @@ app.post('/refresh-token', async (req, res) => {
 
 // Protected route example
 const authenticateToken = (req, res, next) => {
+  console.log('Auth header:', req.headers['authorization']);
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log('Extracted token:', token);
+
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  // Add check for JWT_SECRET
+  if (!process.env.JWT_ACCESS_SECRET) {
+    console.error('JWT_SECRET is not defined in environment variables');
+    return res.status(500).json({ error: 'Server configuration error' });
   }
 
   jwt.verify(token, process.env.JWT_ACCESS_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Invalid access token' });
+      console.log('Token verification error:', err);
+      return res.status(403).json({
+        error: 'Invalid or expired token',
+        details: err.message
+      });
     }
     req.user = user;
     next();
@@ -186,6 +200,88 @@ app.put('/update-password', authenticateToken, async (req, res) => {
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
     console.error('Password update error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/register-client', async (req, res) => {
+  try {
+    const { lastName, firstName, organization, department, position, phoneNumber } = req.body;
+    console.log(req.body)
+
+    const [result] = await pool.execute(
+      'INSERT INTO clients (lastName, firstName, organization, department, position, phoneNumber) VALUES (?, ?, ?, ?, ?, ?)',
+      [lastName, firstName, organization, department, position, phoneNumber]
+    );
+
+    res.status(201).json({ message: 'Client added successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Protected client routes
+app.get('/clients', authenticateToken, async (req, res) => {
+  try {
+    const [clients] = await pool.execute('SELECT * FROM clients');
+    res.json(clients);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/clients/:id', authenticateToken, async (req, res) => {
+  try {
+    const [clients] = await pool.execute(
+      'SELECT * FROM clients WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (clients.length === 0) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json(clients[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/clients/:id', authenticateToken, async (req, res) => {
+  try {
+    const { lastName, firstName, organization, department, position, phoneNumber } = req.body;
+
+    const [result] = await pool.execute(
+      `UPDATE clients 
+       SET lastName = ?, firstName = ?, organization = ?, 
+           department = ?, position = ?, phoneNumber = ?
+       WHERE id = ?`,
+      [lastName, firstName, organization, department, position, phoneNumber, req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json({ message: 'Client updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/clients/:id', authenticateToken, async (req, res) => {
+  try {
+    const [result] = await pool.execute(
+      'DELETE FROM clients WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    res.json({ message: 'Client deleted successfully' });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
