@@ -187,7 +187,6 @@ app.put('/update-password', authenticateToken, async (req, res) => {
     if (!validPassword) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
-
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -206,12 +205,25 @@ app.put('/update-password', authenticateToken, async (req, res) => {
 
 app.post('/register-client', async (req, res) => {
   try {
-    const { lastName, firstName, organization, department, position, phoneNumber } = req.body;
-    console.log(req.body)
+    const { lastName, firstName, organization, department, position } = req.body;
+
+    // Create the clients table if it does not exist
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lastName VARCHAR(255) NOT NULL,
+        firstName VARCHAR(255) NOT NULL,
+        organization VARCHAR(255),
+        department VARCHAR(255),
+        position VARCHAR(255),
+        registered_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
 
     const [result] = await pool.execute(
-      'INSERT INTO clients (lastName, firstName, organization, department, position, phoneNumber) VALUES (?, ?, ?, ?, ?, ?)',
-      [lastName, firstName, organization, department, position, phoneNumber]
+      'INSERT INTO clients (lastName, firstName, organization, department, position) VALUES (?, ?, ?, ?, ?)',
+      [lastName, firstName, organization, department, position]
     );
 
     res.status(201).json({ message: 'Client added successfully' });
@@ -249,14 +261,14 @@ app.get('/clients/:id', authenticateToken, async (req, res) => {
 
 app.put('/clients/:id', authenticateToken, async (req, res) => {
   try {
-    const { lastName, firstName, organization, department, position, phoneNumber } = req.body;
+    const { lastName, firstName, organization, department, position } = req.body;
 
     const [result] = await pool.execute(
       `UPDATE clients 
-       SET lastName = ?, firstName = ?, organization = ?, 
-           department = ?, position = ?, phoneNumber = ?
-       WHERE id = ?`,
-      [lastName, firstName, organization, department, position, phoneNumber, req.params.id]
+      SET lastName = ?, firstName = ?, organization = ?, 
+        department = ?, position = ?
+      WHERE id = ?`,
+      [lastName, firstName, organization, department, position, req.params.id]
     );
 
     if (result.affectedRows === 0) {
