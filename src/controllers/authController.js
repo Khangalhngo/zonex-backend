@@ -23,12 +23,33 @@ const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // Create login history table if it doesn't exist
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS login_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255),
+        attempt_status ENUM('success', 'failed') NOT NULL,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     const [users] = await pool.execute(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
 
+    // Get client IP and user agent
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
     if (users.length === 0) {
+      // Log failed attempt
+      await pool.execute(
+        'INSERT INTO login_history (username, attempt_status, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+        [username, 'failed', ipAddress, userAgent]
+      );
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -36,8 +57,19 @@ const login = async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
+      // Log failed attempt
+      await pool.execute(
+        'INSERT INTO login_history (username, attempt_status, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+        [username, 'failed', ipAddress, userAgent]
+      );
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Log successful attempt
+    await pool.execute(
+      'INSERT INTO login_history (username, attempt_status, ip_address, user_agent) VALUES (?, ?, ?, ?)',
+      [username, 'success', ipAddress, userAgent]
+    );
 
     await pool.execute(
       'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?',
