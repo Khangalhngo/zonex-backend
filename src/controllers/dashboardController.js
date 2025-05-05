@@ -31,7 +31,6 @@ const getClientStatistics = async (req, res) => {
       LEFT JOIN states s ON c.state = s.id
       WHERE DATE(c.updated_date) = CURDATE()
       ORDER BY c.updated_date DESC
-      LIMIT 5
     `);
 
     // Get today's login attempts
@@ -44,7 +43,6 @@ const getClientStatistics = async (req, res) => {
       FROM login_history
       WHERE DATE(attempt_time) = CURDATE()
       ORDER BY attempt_time DESC
-      LIMIT 5
     `);
 
     // Format the response

@@ -3,9 +3,59 @@ const pool = require('../config/database');
 const { generateAccessToken, generateRefreshToken } = require('../config/jwt');
 const jwt = require('jsonwebtoken');
 
+// Constants for security settings
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+// Helper function to check if account is locked
+const isAccountLocked = async (username) => {
+  const [failedAttempts] = await pool.execute(
+    `SELECT COUNT(*) as count, MAX(attempt_time) as last_attempt 
+     FROM login_history 
+     WHERE username = ? AND attempt_status = 'failed' 
+     AND attempt_time > DATE_SUB(NOW(), INTERVAL ? MINUTE)`,
+    [username, LOCKOUT_DURATION / (60 * 1000)]
+  );
+
+  return failedAttempts[0].count >= MAX_LOGIN_ATTEMPTS;
+};
+
+// Helper function to validate password complexity
+const validatePassword = (password) => {
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return { valid: false, message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long` };
+  }
+  if (!PASSWORD_REGEX.test(password)) {
+    return {
+      valid: false,
+      message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+    };
+  }
+  return { valid: true };
+};
+
 const register = async (req, res) => {
   try {
     const { username, password } = req.body;
+
+    // Validate password complexity
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.message });
+    }
+
+    // Check if username already exists
+    const [existingUsers] = await pool.execute(
+      'SELECT id FROM users WHERE username = ?',
+      [username]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await pool.execute(
@@ -34,6 +84,13 @@ const login = async (req, res) => {
         attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Check if account is locked
+    if (await isAccountLocked(username)) {
+      return res.status(429).json({
+        error: 'Account temporarily locked due to multiple failed attempts. Please try again later.'
+      });
+    }
 
     const [users] = await pool.execute(
       'SELECT * FROM users WHERE username = ?',

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const sqlInjectionCheck = require('./middleware/sqlInjection');
 require('dotenv').config();
 
 const authRoutes = require('./routes/authRoutes');
@@ -16,6 +17,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+app.use(sqlInjectionCheck);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
