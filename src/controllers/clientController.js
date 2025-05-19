@@ -2,7 +2,7 @@ const pool = require('../config/database');
 
 const createClient = async (req, res) => {
   try {
-    const { lastName, firstName, registerNo, organization, department, position, pnumber, editedAdmin, submittedAdmin, letterNo, state } = req.body;
+    const { lastName, firstName, registerNo, organization, organization_name, department, position, pnumber, editedAdmin, submittedAdmin, letterNo, state } = req.body;
     console.log("🚀 ~ :6 ~ createClient ~ req.body:", req.body)
 
     // Create the clients table if it does not exist
@@ -13,6 +13,7 @@ const createClient = async (req, res) => {
         firstName VARCHAR(255) NOT NULL,
         registerNo VARCHAR(255) NOT NULL,
         organization VARCHAR(255),
+        organization_name VARCHAR(255),
         department VARCHAR(255),
         position VARCHAR(255),
         pnumber VARCHAR(255),
@@ -26,8 +27,8 @@ const createClient = async (req, res) => {
     `);
 
     const [result] = await pool.execute(
-      'INSERT INTO clients (lastName, firstName,registerNo, organization, department, position, pnumber,  editedAdmin, submittedAdmin, letterNo, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [lastName, firstName, registerNo, organization, department, position, pnumber, editedAdmin, submittedAdmin, letterNo, state]
+      'INSERT INTO clients (lastName, firstName,registerNo, organization, organization_name, department, position, pnumber,  editedAdmin, submittedAdmin, letterNo, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [lastName, firstName, registerNo, organization, organization_name, department, position, pnumber, editedAdmin, submittedAdmin, letterNo, state]
     );
     console.log("result", result);
     res.status(201).json({ message: 'Client added successfully' });
@@ -64,7 +65,7 @@ const getClientById = async (req, res) => {
 
 const updateClient = async (req, res) => {
   try {
-    const { lastName, firstName, registerNo, organization, department, position, editedAdmin, pnumber, letterNo, state } = req.body;
+    const { lastName, firstName, registerNo, organization, organization_name, department, position, editedAdmin, pnumber, letterNo, state } = req.body;
     const clientId = req.params.id;
 
     // Create client history table if it doesn't exist
@@ -97,6 +98,7 @@ const updateClient = async (req, res) => {
       firstName,
       registerNo,
       organization,
+      organization_name,
       department,
       position,
       pnumber,
@@ -120,10 +122,10 @@ const updateClient = async (req, res) => {
     // Update the client
     const [result] = await pool.execute(
       `UPDATE clients 
-      SET lastName = ?, firstName = ?, registerNo = ?, organization = ?, 
+      SET lastName = ?, firstName = ?, registerNo = ?, organization = ?, organization_name = ?, 
         department = ?, position = ?, editedAdmin = ?, pnumber = ?, letterNo = ?, state = ?
       WHERE id = ?`,
-      [lastName, firstName, registerNo, organization, department, position, editedAdmin, pnumber, letterNo, state, clientId]
+      [lastName, firstName, registerNo, organization, organization_name, department, position, editedAdmin, pnumber, letterNo, state, clientId]
     );
 
     // Log the changes in history table if any fields were changed

@@ -9,12 +9,13 @@ const statesRoutes = require('./routes/statesRoutes');
 const requestRoutes = require('./routes/requestRoutes')
 const dashboardRoutes = require('./routes/dashboardRoutes')
 const healthRoutes = require('./routes/healthRoutes')
+const organizationRoutes = require('./routes/organizationRoutes')
 const app = express();
 
 app.use(cors({
   origin: 'http://192.168.12.14:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'application/json'],
   credentials: true
 }));
 
@@ -29,6 +30,6 @@ app.use('/', statesRoutes);
 app.use('/', requestRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/', healthRoutes);
-
+app.use('/', organizationRoutes);
 
 module.exports = app; 
